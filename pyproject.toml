@@ -1,0 +1,16 @@
+[project]
+name = "tt-stats"
+version = "0.1.0"
+description = "Analyze your TikTok follower data locally — no uploads to any server."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib>=3.0",
+]
+
+[project.scripts]
+tt-stats = "tt_stats.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
