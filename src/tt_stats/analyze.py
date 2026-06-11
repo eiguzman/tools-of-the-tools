@@ -1,6 +1,19 @@
+import json
+import os
+import re
 from collections import Counter
 from datetime import datetime
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
+
+
+def _resolve_output_path(path: str) -> str:
+    if not os.path.exists(path):
+        return path
+    base, ext = os.path.splitext(path)
+    n = 1
+    while os.path.exists(f"{base}_{n}{ext}"):
+        n += 1
+    return f"{base}_{n}{ext}"
 
 
 def find_not_following_back(
@@ -46,11 +59,24 @@ def generate_growth_chart(
     followers: List[Dict[str, str]],
     output_path: str = "follower_growth.png",
     bin_by: str = "day",
+    start: Optional[str] = None,
+    overwrite: bool = False,
 ) -> str:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
+
+    if not overwrite:
+        output_path = _resolve_output_path(output_path)
+
+    if start:
+        filtered = []
+        for f in followers:
+            d = f.get("Date", "")
+            if d and d[:10] >= start:
+                filtered.append(f)
+        followers = filtered
 
     growth = get_follower_growth(followers, bin_by)
     if not growth:
@@ -67,7 +93,7 @@ def generate_growth_chart(
         x_dates = [datetime.strptime(d, "%Y-%m") for d in dates]
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.bar(x_dates, counts, width=0.8, color="#FE2C55", alpha=0.7)
+    ax.plot(x_dates, counts, color="#FE2C55", linewidth=2, marker="o", markersize=4)
     ax.set_xlabel("Date", fontsize=12)
     ax.set_ylabel("New Followers", fontsize=12)
     ax.set_title("TikTok Followers Gained Over Time", fontsize=14, fontweight="bold")
@@ -97,3 +123,132 @@ def compare_followers(
     gained = sorted(new_names - old_names)
 
     return unfollowed, gained
+
+
+def _extract_date_from_filename(filepath: str) -> Optional[str]:
+    match = re.search(r'(\d{10})', os.path.basename(filepath))
+    if match:
+        try:
+            dt = datetime.fromtimestamp(int(match.group(1)))
+            return dt.strftime("%Y-%m-%d")
+        except (OSError, ValueError):
+            pass
+    return None
+
+
+def generate_change_chart(
+    old_followers: List[Dict[str, str]],
+    new_followers: List[Dict[str, str]],
+    export_date: str,
+    history_path: str = "follower_change_history.json",
+    output_path: str = "follower_change.png",
+    reset: bool = False,
+    overwrite: bool = False,
+) -> str:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    if not overwrite:
+        output_path = _resolve_output_path(output_path)
+
+    unfollowed, gained = compare_followers(old_followers, new_followers)
+    gained_count = len(gained)
+    lost_count = len(unfollowed)
+
+    history = []
+    if not reset and os.path.exists(history_path):
+        with open(history_path) as f:
+            history = json.load(f)
+
+    existing = next((h for h in history if h["date"] == export_date), None)
+    if existing:
+        existing["gained"] = gained_count
+        existing["lost"] = lost_count
+        action = "Updated"
+    else:
+        history.append({
+            "date": export_date,
+            "gained": gained_count,
+            "lost": lost_count,
+        })
+        action = "Added"
+
+    history.sort(key=lambda h: h["date"])
+
+    with open(history_path, "w") as f:
+        json.dump(history, f, indent=2)
+
+    dates = [h["date"] for h in history]
+    gained_vals = [h["gained"] for h in history]
+    lost_vals = [-h["lost"] for h in history]
+
+    x = range(len(dates))
+    width = min(0.6, 0.10 * (len(dates) + 1))
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    bars_gained = ax.bar(
+        list(x), gained_vals, width,
+        label="New followers", color="#2ecc71", alpha=0.85
+    )
+    bars_lost = ax.bar(
+        list(x), lost_vals, width,
+        label="No longer follow", color="#e74c3c", alpha=0.85
+    )
+
+    for bar in bars_gained:
+        h = bar.get_height()
+        if h != 0:
+            ax.annotate(
+                str(int(h)),
+                xy=(bar.get_x() + bar.get_width() / 2, h),
+                xytext=(0, 3),
+                textcoords="offset points",
+                ha="center", va="bottom", fontsize=9
+            )
+    for bar in bars_lost:
+        h = bar.get_height()
+        if h != 0:
+            ax.annotate(
+                str(int(abs(h))),
+                xy=(bar.get_x() + bar.get_width() / 2, h),
+                xytext=(0, -3),
+                textcoords="offset points",
+                ha="center", va="top", fontsize=9
+            )
+
+    ax.axhline(0, color="black", linewidth=0.8)
+
+    net_vals = [h["gained"] - h["lost"] for h in history]
+    ax.plot(list(x), net_vals, color="#3498db", marker="o", linewidth=2, markersize=6, label="_nolegend_")
+
+    for i, nv in enumerate(net_vals):
+        ax.annotate(
+            str(nv),
+            xy=(i, nv),
+            xytext=(10, 0),
+            textcoords="offset points",
+            ha="left", va="center",
+            fontsize=9, color="#3498db", fontweight="bold"
+        )
+
+    y_min, y_max = ax.get_ylim()
+    y_pad = (y_max - y_min) * 0.2
+    ax.set_ylim(y_min - y_pad, y_max + y_pad)
+
+    ax.set_xlabel("Export date", fontsize=12)
+    ax.set_ylabel("Followers", fontsize=12)
+    ax.set_title("Follower Change Between Snapshots", fontsize=14, fontweight="bold")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(dates, rotation=45, ha="right")
+    ax.set_xlim(-1, len(dates))
+    ax.legend(fontsize=11)
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+
+    print(f"  {action} {export_date}: +{gained_count} gained, -{lost_count} unfollowed")
+
+    return output_path
