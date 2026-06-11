@@ -67,6 +67,11 @@ def generate_growth_chart(
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
+    try:
+        plt.style.use("seaborn-v0_8")
+    except OSError:
+        plt.style.use("ggplot")
+
     if not overwrite:
         output_path = _resolve_output_path(output_path)
 
@@ -93,7 +98,8 @@ def generate_growth_chart(
         x_dates = [datetime.strptime(d, "%Y-%m") for d in dates]
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(x_dates, counts, color="#FE2C55", linewidth=2, marker="o", markersize=4)
+    ax.plot(x_dates, counts, color="#25f4ee", linewidth=0.8, alpha=0.6)
+    ax.scatter(x_dates, counts, color="#fe2c55", s=16, zorder=5)
     ax.set_xlabel("Date", fontsize=12)
     ax.set_ylabel("New Followers", fontsize=12)
     ax.set_title("TikTok Followers Gained Over Time", fontsize=14, fontweight="bold")
@@ -152,6 +158,11 @@ def generate_change_chart(
     if not overwrite:
         output_path = _resolve_output_path(output_path)
 
+    try:
+        plt.style.use("seaborn-v0_8")
+    except OSError:
+        plt.style.use("ggplot")
+
     unfollowed, gained = compare_followers(old_followers, new_followers)
     gained_count = len(gained)
     lost_count = len(unfollowed)
@@ -201,26 +212,27 @@ def generate_change_chart(
         if h != 0:
             ax.annotate(
                 str(int(h)),
-                xy=(bar.get_x() + bar.get_width() / 2, h),
-                xytext=(0, 3),
+                xy=(bar.get_x() + bar.get_width() / 2, 0),
+                xytext=(0, -3),
                 textcoords="offset points",
-                ha="center", va="bottom", fontsize=9
+                ha="center", va="top", fontsize=9
             )
     for bar in bars_lost:
         h = bar.get_height()
         if h != 0:
             ax.annotate(
                 str(int(abs(h))),
-                xy=(bar.get_x() + bar.get_width() / 2, h),
-                xytext=(0, -3),
+                xy=(bar.get_x() + bar.get_width() / 2, 0),
+                xytext=(0, 3),
                 textcoords="offset points",
-                ha="center", va="top", fontsize=9
+                ha="center", va="bottom", fontsize=9
             )
 
     ax.axhline(0, color="black", linewidth=0.8)
 
     net_vals = [h["gained"] - h["lost"] for h in history]
-    ax.plot(list(x), net_vals, color="#3498db", marker="o", linewidth=2, markersize=6, label="_nolegend_")
+    ax.plot(list(x), net_vals, color="#2c3e50", linewidth=1, alpha=0.5, linestyle="--")
+    ax.scatter(list(x), net_vals, color="#2c3e50", s=30, zorder=5)
 
     for i, nv in enumerate(net_vals):
         ax.annotate(
@@ -229,7 +241,7 @@ def generate_change_chart(
             xytext=(10, 0),
             textcoords="offset points",
             ha="left", va="center",
-            fontsize=9, color="#3498db", fontweight="bold"
+            fontsize=9, color="#2c3e50", fontweight="bold"
         )
 
     y_min, y_max = ax.get_ylim()

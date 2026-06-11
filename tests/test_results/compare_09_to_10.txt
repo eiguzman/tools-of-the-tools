@@ -1,0 +1,12 @@
+Unfollowers (3):
+  - user_107
+  - user_26
+  - user_40
+
+New followers (6):
+  - user_128
+  - user_159
+  - user_172
+  - user_189
+  - user_271
+  - user_297
