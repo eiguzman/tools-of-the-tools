@@ -1,5 +1,7 @@
 # tt-stats
 
+![Graph of TikTok Followers over Time](tests/follower_growth_2024.png)
+
 A CLI tool that analyzes your TikTok follower data locally — no data is uploaded anywhere. It tells you which of your followings don't follow you back, generates a follower growth chart, and can compare two data files to detect unfollowers and new followers over time.
 
 ## Usage
@@ -30,6 +32,9 @@ uv run tt-stats compare older_data.json newer_data.json
 Shows who unfollowed you and who started following you between the two snapshots.
 
 ### Generate a follower change chart
+
+![Growth Chart](tests/test_results/follower_change.png)
+
 ```
 uv run tt-stats change-chart older_data.json newer_data.json -o change.png -d 2026-06-07
 ```
